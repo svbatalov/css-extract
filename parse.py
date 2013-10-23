@@ -19,7 +19,6 @@ class CSSNode(object):
 
 class Rule(CSSNode):
     def assign_fields(self):
-        print("rule: tok 1", self.token[0], "tok 2:", self.token[1])
         sel = self.token[0]
         self.sel  = list(map(lambda x: x.strip(), sel.split(',')))
         self.end = pp.getTokensEndLoc()
@@ -77,9 +76,9 @@ td.visible-print {
 '''
 css = open('./bootstrap.css').read()
 rules = stylesheet.parseString(css)
-pprint(rules.asList())
+#pprint(rules.asList())
 for r in rules:
     print(r.sel, r.start, r.end)
-    print(css[r.start : r.end])
+    #print(css[r.start : r.end])
 
 print(len(rules), "rules")
