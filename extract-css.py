@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 
-import cssutils
-import sys
+import sys, re
 import lxml.html as ht
-import tinycss as tc
-from collections import OrderedDict
-
-def mentions(rule, cl):
-    if hasattr( rule, 'cssRules'):
-        for r in rule.cssRules:
-            if hasattr(r, 'selectorText') and (cl in r.selectorText):
-                return True
-    else:
-        return hasattr(rule, 'selectorText') and (cl in rule.selectorText)
+from parse import parser
+import cssselect as cs
 
 def main(argv):
     if len(argv) < 3:
@@ -20,33 +11,39 @@ def main(argv):
     css   = argv[1]
     html  = argv[2]
     doc = ht.document_fromstring( open(html).read() )
-    #parser = tc.make_parser('page3')
-    #s = parser.parse_stylesheet_file(css)
-    s = cssutils.parseFile(css)
 
-    #print (doc.xpath('//link[@rel="stylesheet" ]'))
-
-    classes = OrderedDict()
+    patterns = set()
     for c in ( x.get('class') for x in doc.xpath('//*[@class]')):
         for cl in c.split():
-            classes[ cl ] = None
+            patterns.add ( r'\.' + cl + r'\b')
 
-    print ("classes =", len(classes))
+    tags = set( x.tag for x in doc.xpath('//*') )
+    tags = set(map( lambda x: r'\b'+x+r'\b', tags))
+    patterns = patterns.union ( tags )
+    patterns.add ( '\*' )  # include rules with * in selector
 
-    rules = OrderedDict()
+    print (patterns)
 
-    for c in classes:
-        for r in s.cssRules:
-            if mentions(r, c):
-                rules[ r ] = None
-                s.deleteRule (r)
+    css_text = open(css).read()
+    rules = parser().parseString(css_text)
 
-    print(len(s.cssRules))
-    rules = list(rules)
-    print(len(rules))
+
+    result_rules = []
     for r in rules:
-        print(r.cssText)
-    print ( classes)
+        sel = ";".join(r.sel)
+        for c in patterns:
+            if re.search(c, sel):
+                result_rules.append(r)
+                break
+
+    print ("patterns:\t", len(patterns), file=sys.stderr)
+    print ("rules:\t\t", len(rules), file=sys.stderr)
+    print ("result rules:\t", len(result_rules), file=sys.stderr)
+
+    for r in result_rules:
+        print(css_text[r.start : r.end], end='')
+
+    sys.exit()
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

@@ -32,16 +32,18 @@ def make_action(cls):
         return cls(t, l)
     return action
 
-rule    = Forward()
-body    = OneOrMore(CharsNotIn('{};') + ';')
-sel     = CharsNotIn('{};')
+def parser():
+    rule    = Forward()
+    body    = OneOrMore(CharsNotIn('{};') + ';')
+    sel     = CharsNotIn('{};')
 
-rule    << sel + Group( '{' + ZeroOrMore( rule | body ) + '}' )
+    rule    <<= sel + Group( '{' + ZeroOrMore( rule | body ) + '}' )
 
-rule.setParseAction( make_action(Rule) )
+    rule.setParseAction( make_action(Rule) )
 
-stylesheet = ZeroOrMore( rule )
-stylesheet.ignore( cStyleComment )
+    stylesheet = ZeroOrMore( rule )
+    stylesheet.ignore( cStyleComment )
+    return stylesheet
 
 
 css = '''
@@ -73,12 +75,39 @@ td.visible-print {
   a {ZZZ;}
   }
 }
+p {
+  font-family: Garamond, serif;
+}
+h2 {
+  font-size: 110 %;
+  color: red;
+  background: white;
+}
+.note {
+  color: red;
+  background: yellow;
+  font-weight: bold;
+}
+p#paragraph1 {
+  margin: 0;
+}
+a:hover {
+  text-decoration: none;
+}
+#news p {
+  color: blue;
+}
+[type="button"] {
+  background-color: green;
+}
 '''
-css = open('./bootstrap.css').read()
-rules = stylesheet.parseString(css)
-#pprint(rules.asList())
-for r in rules:
-    print(r.sel, r.start, r.end)
-    #print(css[r.start : r.end])
+if __name__ == "__main__":
+    css = open('./bootstrap.css').read()
+    rules = parser().parseString(css)
+    #pprint(rules.asList())
+    for r in rules:
+        print(r.sel, r.start, r.end)
+        print(";".join(r.sel))
+        #print(css[r.start : r.end])
 
-print(len(rules), "rules")
+    print(len(rules), "rules")
