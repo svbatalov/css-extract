@@ -8,11 +8,12 @@ import pyparsing as pp
 # http://pyparsing.wikispaces.com/share/view/54406740
 # http://sourceforge.net/mailarchive/forum.php?thread_name=4E8B3555.1090404%40cs.wisc.edu&forum_name=pyparsing-users
 class CSSNode(object):
-    def __init__(self, tokens, l=None):
+    def __init__(self, tokens, l=None, s=None):
         self.token = tokens
         self.assign_fields()
         if l: self.start = l
         else: self.start = 0
+        if s: self.s = s
     def __str__(self):
         return self.__class__.__name__ + ':' + str(self.__dict__)
     __repr__ = __str__
@@ -22,14 +23,48 @@ class Rule(CSSNode):
         sel = self.token[0]
         self.sel  = list(map(lambda x: x.strip(), sel.split(',')))
         self.end = pp.getTokensEndLoc()
+        self.subrules = []
         for e in self.token[1]:
-            if hasattr(e, 'sel'):
-                self.sel  += e.sel      # collect selectors from inner blocks
+            if hasattr(e, 'sel'):       # this is the subrule
+                self.sel += e.sel      # collect selectors from inner blocks
+                self.subrules.append(e)
+                e.parent = self
         del self.token
+
+    def exclude(self):
+        if not hasattr(self, 'parent'): return
+        p = self.parent
+        if not hasattr(p, 'exc'):
+            p.exc = [(self.start, self.end)]
+        else:
+            e = p.exc
+            # try to merge excluded rules
+            if e[-1][1] == self.start:
+                e[-1][1] == self.end
+            else:
+                e += [(self.start, self.end)]
+
+    def text(self, css=None):
+        '''
+        return a string corresponding to rule body
+        honouring the .exc subrules exclude list
+        '''
+        if not css: css = self.s
+        if not self.exc:
+            return css[self.start : self.end]
+
+        s = css[self.start : self.exc[0][0]]
+        for a,b in zip(self.exc, self.exc[1:]):
+            print(a,b)
+            s += css[a[1] : b[0]]
+
+        s += css[self.exc[-1][1] : self.end]
+
+        return s
 
 def make_action(cls):
     def action(s, l, t):
-        return cls(t, l)
+        return cls(t, l, s)
     return action
 
 def parser():
@@ -53,9 +88,11 @@ td.visible-print {
 }
 
 @media print {
+  hello: world;
   .visible-print {
     display: block !important;
   }
+  sometext;
   tr.visible-print {
     display: table-row !important;
   }
@@ -102,12 +139,15 @@ a:hover {
 }
 '''
 if __name__ == "__main__":
-    css = open('./bootstrap.css').read()
+    #css = open('./bootstrap.css').read()
     rules = parser().parseString(css)
-    #pprint(rules.asList())
+    pprint(rules.asList())
     for r in rules:
         print(r.sel, r.start, r.end)
-        print(";".join(r.sel))
+        #print(";".join(r.sel))
         #print(css[r.start : r.end])
 
     print(len(rules), "rules")
+    rules[1].subrules[0].exclude()
+    rules[1].subrules[-1].exclude()
+    print( rules[1].text() )
