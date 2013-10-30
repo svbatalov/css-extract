@@ -10,10 +10,12 @@ import pyparsing as pp
 class CSSNode(object):
     def __init__(self, tokens, l=None, s=None):
         self.token = tokens
-        self.assign_fields()
+        self.has_declarations = False
+        self.exc = []
         if l: self.start = l
         else: self.start = 0
         if s: self.s = s
+        self.assign_fields()
     def __str__(self):
         return self.__class__.__name__ + ':' + str(self.__dict__)
     __repr__ = __str__
@@ -26,15 +28,18 @@ class Rule(CSSNode):
         self.subrules = []
         for e in self.token[1]:
             if hasattr(e, 'sel'):       # this is the subrule
-                self.sel += e.sel      # collect selectors from inner blocks
+               # self.sel += e.sel      # collect selectors from inner blocks
                 self.subrules.append(e)
                 e.parent = self
+            else:
+                self.has_declarations = True
         del self.token
 
     def exclude(self):
+        self.excluded = True
         if not hasattr(self, 'parent'): return
         p = self.parent
-        if not hasattr(p, 'exc'):
+        if not p.exc:
             p.exc = [(self.start, self.end)]
         else:
             e = p.exc
@@ -44,18 +49,17 @@ class Rule(CSSNode):
             else:
                 e += [(self.start, self.end)]
 
-    def text(self, css=None):
+    def text(self, css=None, exclude=True):
         '''
         return a string corresponding to rule body
         honouring the .exc subrules exclude list
         '''
         if not css: css = self.s
-        if not self.exc:
+        if not self.exc or not exclude:
             return css[self.start : self.end]
 
         s = css[self.start : self.exc[0][0]]
         for a,b in zip(self.exc, self.exc[1:]):
-            print(a,b)
             s += css[a[1] : b[0]]
 
         s += css[self.exc[-1][1] : self.end]
